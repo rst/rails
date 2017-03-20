@@ -236,9 +236,7 @@ module ActiveRecord
 
       # Clears the prepared statements cache.
       def clear_cache!
-        @lock.synchronize do
-          @statements.clear
-        end
+        @statements.clear
       end
 
       def truncate(table_name, name = nil)
@@ -639,10 +637,8 @@ module ActiveRecord
           if in_transaction?
             raise ActiveRecord::PreparedStatementCacheExpired.new(e.cause.message)
           else
-            @lock.synchronize do
-              # outside of transactions we can simply flush this query and retry
-              @statements.delete sql_key(sql)
-            end
+            # outside of transactions we can simply flush this query and retry
+            @statements.delete sql_key(sql)
             retry
           end
         end
@@ -678,21 +674,19 @@ module ActiveRecord
         # Prepare the statement if it hasn't been prepared, return
         # the statement key.
         def prepare_statement(sql)
-          @lock.synchronize do
-            sql_key = sql_key(sql)
-            unless @statements.key? sql_key
-              nextkey = @statements.next_key
-              begin
-                @connection.prepare nextkey, sql
-              rescue => e
-                raise translate_exception_class(e, sql)
-              end
-              # Clear the queue
-              @connection.get_last_result
-              @statements[sql_key] = nextkey
+          sql_key = sql_key(sql)
+          unless @statements.key? sql_key
+            nextkey = @statements.next_key
+            begin
+              @connection.prepare nextkey, sql
+            rescue => e
+              raise translate_exception_class(e, sql)
             end
-            @statements[sql_key]
+            # Clear the queue
+            @connection.get_last_result
+            @statements[sql_key] = nextkey
           end
+          @statements[sql_key]
         end
 
         # Connects to a PostgreSQL server and sets up the adapter depending on the

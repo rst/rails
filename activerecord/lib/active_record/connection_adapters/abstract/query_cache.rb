@@ -83,9 +83,7 @@ module ActiveRecord
       # the same SQL query and repeatedly return the same result each time, silently
       # undermining the randomness you were expecting.
       def clear_query_cache
-        @lock.synchronize do
-          @query_cache.clear
-        end
+        @query_cache.clear
       end
 
       def select_all(arel, name = nil, binds = [], preparable: nil)
@@ -101,23 +99,21 @@ module ActiveRecord
       private
 
         def cache_sql(sql, name, binds)
-          @lock.synchronize do
-            result =
-              if @query_cache[sql].key?(binds)
-                ActiveSupport::Notifications.instrument(
-                  "sql.active_record",
-                  sql: sql,
-                  binds: binds,
-                  name: name,
-                  connection_id: object_id,
-                  cached: true,
-                )
-                @query_cache[sql][binds]
-              else
-                @query_cache[sql][binds] = yield
-              end
-            result.dup
-          end
+          result =
+            if @query_cache[sql].key?(binds)
+              ActiveSupport::Notifications.instrument(
+                "sql.active_record",
+                sql: sql,
+                binds: binds,
+                name: name,
+                connection_id: object_id,
+                cached: true,
+              )
+              @query_cache[sql][binds]
+            else
+              @query_cache[sql][binds] = yield
+            end
+          result.dup
         end
 
         # If arel is locked this is a SELECT ... FOR UPDATE or somesuch. Such
