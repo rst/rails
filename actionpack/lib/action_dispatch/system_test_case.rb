@@ -84,10 +84,21 @@ module ActionDispatch
     include SystemTesting::TestHelpers::SetupAndTeardown
     include SystemTesting::TestHelpers::ScreenshotHelper
 
+    # For transactional fixtures, we want the server thread to use the
+    # same DB connection that the test runner uses to set up the fixtures,
+    # so they share transactional state.  We arrange that like so:
+
+    cattr_accessor :cached_db_connection
+
+    setup do
+      SystemTestCase.cached_db_connection = ActiveRecord::Base.connection
+    end
+
     def self.start_application # :nodoc:
-      Capybara.app = Rack::Builder.new do
-        map "/" do
-          run Rails.application
+      Capybara.app = lambda do |request_env|
+        conn = SystemTestCase.cached_db_connection
+        ActiveRecord::Base.connection_pool.using_connection(conn) do
+          Rails.application.call(request_env)
         end
       end
     end
